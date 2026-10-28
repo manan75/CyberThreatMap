@@ -1,5 +1,8 @@
 # 🌍 Global Cyber Threat Monitor (3D)
 
+[![CI](https://github.com/manan75/CyberThreatMap/actions/workflows/ci.yml/badge.svg)](https://github.com/manan75/CyberThreatMap/actions/workflows/ci.yml)
+[![Security](https://github.com/manan75/CyberThreatMap/actions/workflows/security.yml/badge.svg)](https://github.com/manan75/CyberThreatMap/actions/workflows/security.yml)
+
 > *"Visualizing the invisible war happening on the internet — right now."*
 
 ![Project Screenshot](./screenshot.png)
@@ -13,6 +16,9 @@
 - [Tech Stack & Architecture](#️-tech-stack--architecture)
 - [Computer Science Concepts Used](#-computer-science-concepts-used)
 - [How to Run the Project](#-how-to-run-the-project)
+- [Configuration](#️-configuration)
+- [Testing](#-testing)
+- [Development Workflow (Agile & DevOps)](#-development-workflow-agile--devops)
 - [Future Improvements](#-future-improvements)
 - [Acknowledgments](#-acknowledgments)
 
@@ -145,28 +151,34 @@ Raw IPs alone cannot be visualized.
 
 ### ✅ Prerequisites
 
-- Node.js (v16+ recommended)
+- Node.js 22 LTS or newer (CI tests Node 22 and 24)
 - npm
 
 ### 🔥 Step 1: Start the Backend
 
 ```bash
 cd server
-npm install
-node index.js
+npm ci
+npm start
 ```
 
 Expected output:
 
 ```
-🚀 COMMAND CENTER ACTIVE
+Backend is alive! (development)
+Server running on: http://localhost:4000
+Health check: http://localhost:4000/health
+Socket Endpoint: ws://localhost:4000
 ```
+
+Check it: `curl http://localhost:4000/health` →
+`{"status":"ok","version":"1.0.0",...,"lastPollAt":"...","lastThreatCount":20}`
 
 ### 🌐 Step 2: Start the Frontend
 
 ```bash
 cd client
-npm install
+npm ci
 npm start
 ```
 
@@ -175,6 +187,51 @@ Open:
 ```
 http://localhost:3000
 ```
+
+---
+
+## ⚙️ Configuration
+
+All settings come from environment variables. Defaults work for local development, so
+nothing needs to be set to run the project locally. See `server/.env.example` and
+`client/.env.example`.
+
+| Variable | Where | Default | Purpose |
+|---|---|---|---|
+| `NODE_ENV` | server | `development` | `production` on Render |
+| `PORT` | server | `4000` | Render injects its own value |
+| `CORS_ORIGINS` | server | dev: `http://localhost:3000,http://127.0.0.1:3000`; production: `*` + warning | Comma-separated browser origins allowed to call the API |
+| `REACT_APP_BACKEND_URL` | client (build time) | `http://127.0.0.1:4000` | Backend URL the globe connects to |
+
+Note: CORS is enforced by browsers for HTTP requests. The globe connects with a pure
+WebSocket transport, which CORS does not cover.
+
+---
+
+## 🧪 Testing
+
+```bash
+cd server && npm test            # 25 unit tests, external APIs mocked (no internet needed)
+cd server && npm run test:coverage
+cd client && npm run lint && CI=true npm test   # 6 component tests, globe and socket mocked
+```
+
+`cd server && npm run check:live-feed` calls the real SANS ISC API once. It is a manual
+check, not part of the test suite.
+
+---
+
+## 🔁 Development Workflow (Agile & DevOps)
+
+| Topic | Where |
+|---|---|
+| Branching, PRs, Definition of Done | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Backlog (user stories, priorities, acceptance criteria) | [docs/BACKLOG.md](docs/BACKLOG.md) |
+| Iteration plan | [docs/ITERATION-PLAN.md](docs/ITERATION-PLAN.md) |
+| CI, security and release workflows | [.github/workflows](.github/workflows) |
+| Reading security findings | [docs/SECURITY-CHECKS.md](docs/SECURITY-CHECKS.md) |
+| Releasing and deploying (manual) | [docs/RELEASE.md](docs/RELEASE.md), [CHANGELOG.md](CHANGELOG.md) |
+| Lab demonstration script | [docs/DEVOPS-LAB-GUIDE.md](docs/DEVOPS-LAB-GUIDE.md) |
 
 ---
 

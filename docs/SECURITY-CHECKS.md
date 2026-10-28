@@ -9,8 +9,8 @@ What runs, when, what makes it fail, and how to act on a finding.
 | **Dependabot version updates** | `.github/dependabot.yml` | weekly (npm), monthly (Actions) | n/a: opens PRs | managed by GitHub |
 | **Dependabot security alerts / updates** | repo Settings → Code security | when an advisory is published | n/a: alert + PR | managed by GitHub |
 | **Dependency review** | `security.yml` | every PR to `main` | the PR **adds or upgrades to** a package with a **high or critical** advisory | `contents: read` |
-| **npm audit** | `security.yml` | PRs, pushes to `main`, Mondays 06:00 UTC | **critical** advisory anywhere in a lockfile; all findings are listed in the job summary | `contents: read` |
-| **CodeQL** | `security.yml` | PRs, pushes to `main`, Mondays | reports alerts in **Security → Code scanning** | `contents: read`, `security-events: write` |
+| **npm audit** | `security.yml` | PRs, pushes to any branch, Mondays 06:00 UTC | **critical** advisory anywhere in a lockfile; all findings are listed in the job summary | `contents: read` |
+| **CodeQL** | `security.yml` | PRs, pushes to any branch, Mondays | reports alerts in **Security → Code scanning** | `contents: read`, `security-events: write` |
 
 Why the scheduled run matters: new advisories are published for packages we already use.
 The Monday run catches them even when nobody is pushing code.
