@@ -1,0 +1,49 @@
+name: User story
+description: A new feature or improvement, written from the user's point of view
+title: "[Story]: "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Write the story so it can be finished in one iteration. See docs/BACKLOG.md for examples.
+  - type: textarea
+    id: story
+    attributes:
+      label: User story
+      value: |
+        As a <type of user>,
+        I want <goal>,
+        so that <benefit>.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Testable conditions. "Given / When / Then" works well.
+      value: |
+        - [ ] Given ..., when ..., then ...
+        - [ ] Tests cover the new behaviour
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority (MoSCoW)
+      options:
+        - Must have
+        - Should have
+        - Could have
+        - Won't have (this time)
+    validations:
+      required: true
+  - type: dropdown
+    id: estimate
+    attributes:
+      label: Estimate (story points)
+      options: ["1", "2", "3", "5", "8", "Needs a spike"]
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes, dependencies or risks

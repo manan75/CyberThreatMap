@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/manan75/CyberThreatMap/security/policy
+    about: Please report vulnerabilities privately, not as a public issue.
+  - name: Project backlog and iteration plan
+    url: https://github.com/manan75/CyberThreatMap/blob/main/docs/BACKLOG.md
+    about: Check whether the story is already in the backlog before opening a new one.
