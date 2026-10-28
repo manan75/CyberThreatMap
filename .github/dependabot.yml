@@ -1,0 +1,43 @@
+# Dependabot opens pull requests for outdated or vulnerable dependencies.
+# Each PR runs through the CI and Security workflows like any other change.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /server
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps-server)"
+    groups:
+      # One PR for all minor/patch bumps keeps the review load small.
+      server-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /client
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps-client)"
+    groups:
+      client-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # react-scripts 5 is the final CRA release; a framework migration is a
+      # planned backlog item, not something to auto-bump.
+      - dependency-name: react-scripts
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      github-actions:
+        patterns: ["*"]

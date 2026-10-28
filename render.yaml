@@ -5,6 +5,8 @@ services:
     runtime: node
     buildCommand: cd server && npm install
     startCommand: cd server && node index.js
+    # Render waits for this to return 200 before switching traffic to a new deploy.
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production

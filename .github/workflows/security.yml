@@ -1,0 +1,91 @@
+name: Security
+
+# Three complementary checks (see docs/SECURITY-CHECKS.md for how to read them):
+#   1. dependency-review - blocks a PR that ADDS a dependency with a high/critical advisory
+#   2. npm-audit         - scans the full lockfiles; fails on critical, reports the rest
+#   3. codeql            - static analysis of our own JavaScript for security bugs
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 6 * * 1' # every Monday 06:00 UTC - catches advisories published after merge
+  workflow_dispatch:
+
+# Default to no permissions; each job asks only for what it needs.
+permissions: {}
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: Dependency review (PR only)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: high
+
+  npm-audit:
+    name: npm audit (${{ matrix.project }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [server, client]
+    defaults:
+      run:
+        working-directory: ${{ matrix.project }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # npm audit only needs package-lock.json, so no install step is required.
+      - name: Report all findings to the job summary
+        run: |
+          {
+            echo "## npm audit - ${{ matrix.project }}"
+            echo '```'
+            npm audit || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on critical vulnerabilities
+        run: npm audit --audit-level=critical
+
+  codeql:
+    name: CodeQL (JavaScript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write # upload results to the Security tab
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+          build-mode: none
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:javascript-typescript
