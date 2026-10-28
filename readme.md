@@ -225,6 +225,7 @@ check, not part of the test suite.
 
 | Topic | Where |
 |---|---|
+| **Start here:** project context for new contributors and AI agents | [context.md](context.md) |
 | Branching, PRs, Definition of Done | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Backlog (user stories, priorities, acceptance criteria) | [docs/BACKLOG.md](docs/BACKLOG.md) |
 | Iteration plan | [docs/ITERATION-PLAN.md](docs/ITERATION-PLAN.md) |
