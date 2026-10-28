@@ -10,8 +10,11 @@ function createApp({ config, getStatus = () => ({}) }) {
     const app = express();
     app.use(cors(config.cors));
 
-    // Lightweight liveness check used by Render and the CI smoke test.
-    // It never calls the SANS API, so it stays fast and reliable.
+    // Lightweight process liveness check used by Render and the CI smoke test.
+    // It verifies that the Express/Node HTTP server is running and responsive.
+    // It intentionally does not call external services (SANS ISC) synchronously so it
+    // remains fast and avoids cascading restarts if the feed is slow or unreachable.
+    // Feed freshness is tracked asynchronously via getStatus() (lastPollAt, lastThreatCount).
     app.get('/health', (req, res) => {
         res.json({
             status: 'ok',

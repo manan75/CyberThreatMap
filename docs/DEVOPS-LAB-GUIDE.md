@@ -30,8 +30,13 @@ CI caught a "works on my machine" problem before anyone merged it.
 **Live demo: break the build**
 ```bash
 git switch -c demo/broken-build
-# move the port-scan threshold from 5 to 10, so a test fails
-sed -i 's/if(intensity <5) return "Port Scan";/if(intensity <10) return "Port Scan";/' server/services/locator.js
+
+# On Windows PowerShell:
+(Get-Content server/services/locator.js) -replace '<5', '<10' | Set-Content server/services/locator.js
+
+# Or on Bash:
+# sed -i 's/if(intensity <5) return "Port Scan";/if(intensity <10) return "Port Scan";/' server/services/locator.js
+
 cd server && npm test        # ✖ boundaries: 5 and 50 move to the next category  (pass 24, fail 1)
 cd .. && git commit -am "demo: break classification" && git push -u origin demo/broken-build
 ```
@@ -48,7 +53,8 @@ cd server
 npm test                 # 25 tests: collector, locator, config, /health + CORS
 npm run test:coverage    # coverage table for the files the tests load
 cd ../client
-CI=true npm test -- --verbose   # 6 tests: HUD, socket events, globe data, labels
+npm test -- --watchAll=false   # 6 tests: HUD, socket events, globe data, labels
+npm run lint                   # ESLint check (0 warnings)
 ```
 
 **Talking points:**
@@ -63,7 +69,7 @@ CI=true npm test -- --verbose   # 6 tests: HUD, socket events, globe data, label
 
 ## 3. Branching and pull requests
 
-1. Show the branch list: `main` (untouched) and `feature/devops-pipeline`.
+1. Show the branch list: `main` (untouched baseline) and `feature/devops-pipeline`.
 2. **Pull requests → New pull request** → base `main` ← compare `feature/devops-pipeline`.
    The description is pre-filled from `.github/pull_request_template.md`.
 3. In the PR's **Checks** tab: CI, npm audit, dependency review and CodeQL run automatically.
@@ -72,36 +78,60 @@ CI=true npm test -- --verbose   # 6 tests: HUD, socket events, globe data, label
 5. Show the commit history: one focused commit per stage
    (`git log --oneline main..feature/devops-pipeline`).
 
+**Talking point (Branch protection vs PR template):**
+A PR template guides contributors, but technical enforcement is a GitHub repository setting.
+To enforce a true merge gate, configure branch protection / ruleset on `main`:
+- **Settings → Rulesets** (or **Branches → Branch protection rules**) for `main`.
+- Require a pull request before merging (1 approval).
+- Require status checks to pass: search and select the exact aggregated check **`CI passed`** (from `.github/workflows/ci.yml`).
+- Block force pushes and branch deletion (US-10 in backlog). Note that `feature/devops-pipeline` is kept flexible for feature development, while `main` acts as the protected production trunk.
+
 ## 4. Health checks and configuration
 
 ```bash
 cd server && npm start
-# second terminal:
-curl http://localhost:4000/health
-# {"status":"ok","version":"1.0.0","environment":"development","uptimeSeconds":12,
-#  "timestamp":"...","lastPollAt":"...","lastThreatCount":20}
+```
 
-curl -si -H "Origin: http://localhost:3000"  http://localhost:4000/health | grep -i access-control
-# Access-Control-Allow-Origin: http://localhost:3000
+In a second terminal:
+```bash
+# Bash:
+curl http://localhost:4000/health
+curl -si -H "Origin: http://localhost:3000" http://localhost:4000/health | grep -i access-control
 curl -si -H "Origin: https://evil.example" http://localhost:4000/health | grep -i access-control
-# (no header: the browser would block the response)
+
+# Windows PowerShell:
+Invoke-RestMethod http://localhost:4000/health | ConvertTo-Json -Depth 5
+curl.exe -si -H "Origin: http://localhost:3000" http://localhost:4000/health | Select-String -Pattern "access-control"
+curl.exe -si -H "Origin: https://evil.example" http://localhost:4000/health | Select-String -Pattern "access-control"
+# (evil origin returns no Access-Control-Allow-Origin header; browser blocks it)
 ```
 
 Fail fast on bad configuration:
 ```bash
+# Bash:
 PORT=abc node index.js
+# PowerShell:
+$env:PORT="abc"; node index.js; Remove-Item Env:\PORT
 # Error: Invalid PORT "abc": expected an integer between 0 and 65535
 ```
 
 Production behaviour without an allowlist (runs, but warns):
 ```bash
+# Bash:
 NODE_ENV=production node index.js
+# PowerShell:
+$env:NODE_ENV="production"; node index.js; Remove-Item Env:\NODE_ENV
 # ⚠️  CORS_ORIGINS is not set in production; allowing all origins. ...
 ```
 
-**Talking points:** `/health` never calls the external API, so it is cheap. Render uses it
-(`healthCheckPath` in `render.yaml`) before routing traffic to a new deploy. All configuration
-is listed in `server/config.js`, the `.env.example` files and the README table.
+**Talking points:**
+- **Liveness vs Feed Freshness**:
+  - `/health` responds with `"status": "ok"` as a process **liveness check** (used by Render and the CI smoke test to confirm the HTTP server is up and accepting traffic).
+  - It intentionally does *not* synchronously query the external SANS ISC feed, keeping response time under 5 ms and preventing cascading container restarts if SANS ISC is slow or temporarily down.
+  - Feed health and freshness is decoupled and tracked asynchronously via `lastPollAt` and `lastThreatCount`. (Iteration 2 story **US-15** adds bounded timeouts, `lastPollOk`, and error message tracking).
+- **CORS in Production**:
+  - If `CORS_ORIGINS` is unset in production, `server/config.js` falls back to `*` with a loud startup warning. This design preserves backwards compatibility so an existing Render deployment does not break prior to setting environment variables.
+  - Production hardening is achieved by setting `CORS_ORIGINS` to the deployed frontend URL in the Render dashboard (tracked in Iteration 2 story **US-11**).
 
 ## 5. Agile project management
 
@@ -115,12 +145,13 @@ is listed in `server/config.js`, the `.env.example` files and the README table.
 
 ## 6. Release management
 
+Test the release gate failure (without publishing any release):
 ```bash
-node scripts/verify-release.js 1.1.0
+node scripts/verify-release.js 9.9.9
 # Release verification FAILED:
-#   - server/package.json version is 1.0.0, expected 1.1.0 (...)
-#   - client/package.json version is 0.1.0, expected 1.1.0 (...)
-#   - CHANGELOG.md has no "## [1.1.0] - YYYY-MM-DD" section
+#   - server/package.json version is 1.0.0, expected 9.9.9 (...)
+#   - client/package.json version is 0.1.0, expected 9.9.9 (...)
+#   - CHANGELOG.md has no "## [9.9.9] - YYYY-MM-DD" section
 ```
 
 **Talking point:** the release gate refuses inconsistent releases. Then walk through
@@ -130,6 +161,7 @@ node scripts/verify-release.js 1.1.0
   SHA-256 checksums.
 - **Deployment to Render is manual**, after review, followed by checking `/health` for the
   new version. Rollback is through Render's previous deploy or `git revert`.
+- **Viva safety note:** In the live demo, demonstrate the dry run on a `release/vX.Y.Z` branch or the gate script above. Do *not* create or push a real release tag during the demo.
 
 Show `CHANGELOG.md` (`[Unreleased]` vs `[1.0.0]`) and the **Release** workflow run in Actions.
 
@@ -143,6 +175,11 @@ Show `CHANGELOG.md` (`[Unreleased]` vs `[1.0.0]`) and the **Release** workflow r
   breaking fix or not) and the before/after numbers (server 16 → 2, client 71 → 35, criticals 4 → 0).
 - **Security → Code scanning**: CodeQL results.
 - Every job declares minimal `permissions` (look at the top of `security.yml`: `permissions: {}`).
+
+**Talking point (Workflow files vs Repository Settings):**
+Having `.github/dependabot.yml` and workflow files configures the automation, but full repository protection requires repository-level enablement in GitHub:
+- **Settings → Code security and analysis**: ensure **Dependency graph**, **Dependabot alerts**, **Dependabot security updates**, and **CodeQL code scanning** are toggled on.
+- Contrast preventive PR checks (the *Dependency review* action blocking newly introduced vulnerable packages) with ongoing health maintenance (Dependabot scheduled PRs).
 
 **Live demo: dependency review blocks a risky PR**
 ```bash
