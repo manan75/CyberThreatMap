@@ -42,18 +42,21 @@ for (const pkg of ['server', 'client']) {
     }
 }
 
-const changelog = fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8');
-const escaped = version.replace(/\./g, '\\.');
-const heading = new RegExp(`^## \\[${escaped}\\] - \\d{4}-\\d{2}-\\d{2}\\s*$`, 'm');
-const match = heading.exec(changelog);
+// Plain string matching (no regex built from input) to find "## [X.Y.Z] - YYYY-MM-DD".
+const lines = fs.readFileSync(path.join(root, 'CHANGELOG.md'), 'utf8').split(/\r?\n/);
+const prefix = `## [${version}] - `;
+const start = lines.findIndex(line =>
+    line.startsWith(prefix) && /^\d{4}-\d{2}-\d{2}$/.test(line.slice(prefix.length).trim()));
 let notes = '';
 
-if (!match) {
+if (start === -1) {
     errors.push(`CHANGELOG.md has no "## [${version}] - YYYY-MM-DD" section`);
 } else {
-    const rest = changelog.slice(match.index + match[0].length);
-    const next = rest.search(/^## \[/m);
-    notes = (next === -1 ? rest : rest.slice(0, next)).replace(/^\[.*\]: .*$/gm, '').trim();
+    const end = lines.findIndex((line, i) => i > start && line.startsWith('## ['));
+    notes = lines.slice(start + 1, end === -1 ? undefined : end)
+        .filter(line => !/^\[.*\]: /.test(line)) // drop link reference definitions
+        .join('\n')
+        .trim();
     if (!notes) errors.push(`CHANGELOG.md section for ${version} is empty`);
 }
 
