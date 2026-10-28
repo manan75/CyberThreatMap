@@ -75,4 +75,4 @@ function enrichThreatData(rawData){
 
 
 
-module.exports = { enrichThreatData };
+module.exports = { enrichThreatData, classifyAttack };

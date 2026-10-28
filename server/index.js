@@ -1,20 +1,22 @@
-const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
-const cors = require('cors');
 
+const { loadConfig } = require('./config');
+const { createApp } = require('./app');
 const { fetchThreats } = require('./services/collector');
 const { enrichThreatData } = require('./services/locator');
 
-const app = express();
-app.use(cors()); 
+const config = loadConfig();
+config.warnings.forEach(warning => console.warn(`⚠️  ${warning}`));
+
+// Exposed through GET /health so we can see whether polling is working.
+const pollStatus = { lastPollAt: null, lastThreatCount: 0 };
+
+const app = createApp({ config, getStatus: () => pollStatus });
 
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    }
+    cors: config.cors
 });
 
 // Since we don't know the real victim, we visualize attacks hitting *us* --> honeypots 
@@ -40,8 +42,10 @@ async function broadcastThreats() {
         
         
         const rawData = await fetchThreats();
-        
+
         let richData = enrichThreatData(rawData);
+        pollStatus.lastPollAt = new Date().toISOString();
+        pollStatus.lastThreatCount = richData.length;
 
    
         richData = richData.map(attack => {
@@ -80,11 +84,12 @@ broadcastThreats();
 
 
 
-const PORT = process.env.PORT || 4000;
+const PORT = config.port;
 
 server.listen(PORT, () => {
     console.log(`
-        Backend is alive! 
+        Backend is alive! (${config.nodeEnv})
         Server running on: http://localhost:${PORT}
+        Health check: http://localhost:${PORT}/health
         Socket Endpoint: ws://localhost:${PORT}`);
 });
