@@ -8,14 +8,17 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call: # reused by release.yml so a release runs exactly the same checks
 
 # Least privilege: CI only needs to read the code.
 permissions:
   contents: read
 
 # A newer push to the same branch cancels the older, now-irrelevant run.
+# github.workflow is the caller's name when reused, so a release run never
+# cancels (or is cancelled by) the normal CI run for the same ref.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
